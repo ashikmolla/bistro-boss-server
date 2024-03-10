@@ -10,6 +10,22 @@ app.use(cors());
 app.use(express.json());
 
 
+const verifyJWT = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res.status(401).send({ error: true, message: 'unauthorized access' })
+  }
+  const token = authorization.split(' ')[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+    if (error) {
+      return res.status(401).send({ error: true, message: 'unauthorized access' })
+    }
+    req.decoded = decoded;
+    next();
+  })
+}
+
+
 
 
 
@@ -54,7 +70,7 @@ async function run() {
       res.send(result)
     })
 
-    //USERS RELATED APIS
+    //USERS RELATED APIS 
     app.post('/users', async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -98,11 +114,17 @@ async function run() {
 
     // CARTS REALATED APIS
 
-    app.get('/carts', async (req, res) => {
+    app.get('/carts', verifyJWT, async (req, res) => {
       const email = req.query.email;
       if (!email) {
         res.send([]);
       }
+      const decodedEmail=req.decoded.email;
+      if(email !== decodedEmail){
+        return res.status(403).send({ error: true, message: 'forbidden access' })
+      }
+
+
       const query = { email: email };
       const result = await cartCollection.find(query).toArray();
       res.send(result)
